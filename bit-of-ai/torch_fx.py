@@ -1,4 +1,7 @@
-"""This module is a tutorial on how to use torch.fx to optimize a model.
+"""This module is a tutorial on how to use torch.fx to optimize a model on the graph level.
+However, it doesn't make sense to fuse Conv2d and BatchNorm2d if you run the model in
+CUDA with cudnn enabled, because cudnn already fuses Conv2d and BatchNorm2d on the kernel
+level. It's only useful if you want to make your model to run on the custom devices.
 """
 import copy
 import torch
