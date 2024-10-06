@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "playground"
+name = "bit-of-ai"
 version = "0.1.0"
 description = ""
 authors = ["Nicole Finnie <nicole.lin@gmail.com>"]
