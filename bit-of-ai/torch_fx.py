@@ -2,6 +2,12 @@
 However, it doesn't make sense to fuse Conv2d and BatchNorm2d if you run the model in
 CUDA with cudnn enabled, because cudnn already fuses Conv2d and BatchNorm2d on the kernel
 level. It's only useful if you want to make your model to run on the custom devices.
+
+
+References: 
+https://github.com/pytorch/pytorch/blob/main/torch/fx/experimental/optimization.py
+https://pytorch.org/docs/stable/_modules/torch/nn/utils/fusion.html#fuse_conv_bn_eval
+
 """
 import copy
 import torch
@@ -96,10 +102,9 @@ class FuseConv2dBatchNorm2d(fx.Transformer):
     def _fuse(conv: nn.modules.Conv2d, bn: nn.modules.BatchNorm2d):
         """Fuse Conv2d and BatchNorm2d in-place.
 
-        Eval mode only. I don't want to assert that the model is in eval mode.
-
+        Eval mode only. 
+        
         batch_norm = gamma * (x - mean) / sqrt(var + eps) + beta
-
         Mathematically, this is equivalent to performing the convolution with 
         bn_weight * (conv_weight * x + conv_bias - mean) / sqrt(var + eps) + beta
 
@@ -169,6 +174,9 @@ def optimize_model():
     call_module  relu_1     relu      (bn2,)                 {}
     output       output     output    (relu_1,)              {}
 
+    Self CPU time total: 197.853ms
+    Self CUDA time total: 109.180ms
+
 
     Optimized:
 
@@ -181,12 +189,15 @@ def optimize_model():
     call_module  relu_1  relu      (conv2,)   {}
     output       output  output    (relu_1,)  {}
 
-        
+    Self CPU time total: 31.520ms
+    Self CUDA time total: 60.264ms
+    
     """
-    model= BadModel().to('cuda')
+    device = 'cuda' if torch.is_cuda_available() else 'cpu'
+    model= BadModel().to(device)
     model.eval()
     tracer = fx.symbolic_trace(model)
-    input_tensor = torch.randn(1, 3, 256, 256).to('cuda')
+    input_tensor = torch.randn(64, 3, 256, 256).to(device)
     before_graph_output = inference(tracer, input_tensor)
 
     transformer = RemoveRedundantPermute(tracer)    
