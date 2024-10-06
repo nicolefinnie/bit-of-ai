@@ -193,7 +193,7 @@ def optimize_model():
     Self CUDA time total: 60.264ms
     
     """
-    device = 'cuda' if torch.is_cuda_available() else 'cpu'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model= BadModel().to(device)
     model.eval()
     tracer = fx.symbolic_trace(model)
