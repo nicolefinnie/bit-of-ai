@@ -1,8 +1,9 @@
-"""This module is a tutorial on how to use torch.fx to optimize a model on the graph level.
+"""This module is a tutorial on how to use torch.fx to optimize a model on the graph level
+for more efficient inference.
+
 However, it doesn't make sense to fuse Conv2d and BatchNorm2d if you run the model in
 CUDA with cudnn enabled, because cudnn already fuses Conv2d and BatchNorm2d on the kernel
 level. It's only useful if you want to make your model to run on the custom devices.
-
 
 References: 
 https://github.com/pytorch/pytorch/blob/main/torch/fx/experimental/optimization.py
@@ -27,7 +28,10 @@ class BadModel(nn.Module):
 
     def forward(self, x):
         """We intentionally premute the input tensor x to NCHW format
-        and then permute it back to NHWC to make it inefficient."""
+        and then permute it back to NHWC to make it inefficient.
+        We do see this issue in some code when they have to switch between NCHW and NHWC
+        only for using certain libraires that can only be performed in NHWC or NHWC format
+        on CPU or GPU kernel."""
         # input to be in NCHW format
         x = x.permute(0,2,3,1) # convert to NHWC
         x = self.conv1(x.permute(0,3,1,2)) # convert to NCHW
