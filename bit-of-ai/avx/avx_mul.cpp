@@ -1,12 +1,14 @@
 // AVX matrix multiplication in SIMD. Only for educational purpose.
 // matrix A: 8x16, matrix B: 16x32, and we want to compute C = A*B in SIMD
-// We assume the matrix B is stored in column-major so we transpose it to row-major
-// It's more efficient to store the matrix in row-major order for matrix multiplication
+// We assume the matrix B is stored in column-major so we transpose it to another
+// row-major matrix, so it's more efficient to access continguously in memory
+// for matrix multiplication
 #include <iostream>
 #include "avx_mul.hpp"
 
 
 // Basic matrix multiplication using AVX SIMD without unrolling
+// AVX handles 8 floats or 4 doubles at a time (256 bit reigster)
 void mamul_basic(const std::vector<float, AlignedAllocator<float, 32>>& A,
                 const std::vector<float, AlignedAllocator<float, 32>>& B,
                 std::vector<float, AlignedAllocator<float, 32>>& C, 
@@ -69,41 +71,6 @@ void print_matrix(const std::vector<float, AlignedAllocator<float, 32>>& matrix,
             std::cout << matrix[i*column+j] << " ";
         }
     }
-}
-
-int main() {
-    int M = 8, K = 16, N = 32;
-    // row-major matrix A and column-major matrix B
-    std::vector<float, AlignedAllocator<float, 32>> A(M*K), B(N*K), C(M*N);
-
-    for(int i=0; i<M; i++){
-        for (int j=0; j<K; j++){
-            A[i*K+j] = static_cast<float>(i*K+j);
-        }
-    }
-    for(int i=0; i<N; i++){
-        for (int j=0; j<K; j++){
-            B[i*K+j] = static_cast<float>(i*K+j);
-        }
-    }
-
-    // std::cout << "Matrix A: ";
-    // print_matrix(B, M, K);
-    
- 
-    // std::cout << "Column-major Matrix B: ";
-    // print_matrix(B, N, K);
-    
-    transpose(B, N, K);
-    // std::cout << "Row-major Matrix B: ";
-    // print_matrix(B, K, N);
-
-
-    mamul_basic(A, B, C, M, N, K);
-    std::cout << "Row-major Matrix C: ";
-    print_matrix(C, M, N);
-
-    return 0;
 }
 
 

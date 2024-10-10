@@ -20,6 +20,7 @@ public:
         std::free(ptr);
     }
 
+    // Rebind so it can be compatible with other types such as std::vector
     template <typename U>
     struct rebind {
         using other = AlignedAllocator<U, Alignment>;
@@ -39,6 +40,6 @@ public:
 float reduce_sum_avx256(__m256 vec8);
 void print_matrix(const std::vector<float, AlignedAllocator<float, 32>>& matrix, const int row, const int column);
 void mamul_basic(const std::vector<float, AlignedAllocator<float, 32>>& A, const std::vector<float, AlignedAllocator<float, 32>>& B, std::vector<float, AlignedAllocator<float, 32>>& C, const int M, const int N, const int K);
-void transpose(const std::vector<float, AlignedAllocator<float, 32>>& B, int row, int column);
+void transpose(std::vector<float, AlignedAllocator<float, 32>>& B, int row, int column);
 
 
