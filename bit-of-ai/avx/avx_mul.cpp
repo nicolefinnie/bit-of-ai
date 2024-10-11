@@ -1,8 +1,7 @@
 // AVX matrix multiplication in SIMD. Only for educational purpose.
-// matrix A: 8x16, matrix B: 16x32, and we want to compute C = A*B in SIMD
-// We assume the matrix B is stored in column-major so we transpose it to another
-// row-major matrix, so it's more efficient to access continguously in memory
-// for matrix multiplication
+// For example, matrix A: 8x16, matrix B: 16x32, and we want to compute C = A*B in SIMD
+// we transpose the matrix B because the machine is row-major, it's more efficient to access 
+// continguously in memory for matrix multiplication.
 #include <iostream>
 #include <cstring>
 #include "avx_mul.hpp"
