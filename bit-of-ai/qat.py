@@ -28,6 +28,7 @@ class QuantizedLayer:
         """
         x_min = x.min().item()
         x_max = x.max().item()
+        # TODO entropy quantization for finding the histogram of the tensor
         self.scale = (x_max - x_min) / (self.max - self.min)
 
 
