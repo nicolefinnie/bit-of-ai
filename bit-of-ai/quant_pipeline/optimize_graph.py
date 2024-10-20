@@ -88,10 +88,15 @@ class FuseConv2dBatchNorm2d(fx.Transformer):
         fused_conv_w = conv_w * scale.reshape(-1, 1, 1, 1).to(dtype=conv.weight.dtype)
         fused_conv_b = ((conv_b - bn.running_mean)*scale + bn.bias).to(dtype=conv.weight.dtype)
         fused_conv.weight = torch.nn.Parameter(fused_conv_w, requires_grad=conv.weight.requires_grad)
-        fused_conv.bias = torch.nn.Parameter(fused_conv_b, requires_grad=conv.bias.requires_grad)
+        if conv.bias is not None:
+            fused_conv.bias = torch.nn.Parameter(fused_conv_b, requires_grad=conv.bias.requires_grad)
+        else:
+            fused_conv.bias = torch.nn.Parameter(fused_conv_b, requires_grad=False)
 
         assert fused_conv.weight.shape == conv.weight.shape
-        assert fused_conv.bias.shape == conv.bias.shape
+        
+        if conv.bias is not None:
+            assert fused_conv.bias.shape == conv.bias.shape
 
         return fused_conv
 

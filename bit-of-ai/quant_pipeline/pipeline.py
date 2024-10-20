@@ -60,6 +60,9 @@ def analyze_gui(graphed_model: fx.GraphModule, model_name: str, quiet: bool) -> 
             else:
                 click.echo(click.style("Skipping model analysis...", fg="yellow"))
                 is_optimized = False
+            
+            if is_optimized:
+                click.echo(click.style("🎉 Model is already optimized on the graph level! Nothing to do.", fg="green"))
     return is_optimized
 
 def optimize_gui(is_optimized: bool, graphed_model: fx.GraphModule, model_name: str, quiet: bool) -> None:
