@@ -18,7 +18,7 @@ class Custom4BitMinMaxObserver(MinMaxObserver):
             min_val, max_val = x.min(), x.max()
 
         qmin = -2**2
-        qmin = qmax = 2**2 - 1
+        qmax = 2**2 - 1
         scale = (max_val - min_val) / (qmax - qmin)
         zero_point = qmin - min_val / scale
 
