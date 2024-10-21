@@ -5,6 +5,7 @@ import torch.ao.quantization as quant
 from torch.ao.quantization import MinMaxObserver
 from torch.utils.data import DataLoader
 import click
+from dataloader import get_cifar_dataloader
 
 class Custom4BitMinMaxObserver(MinMaxObserver):
     def __init__(self, dtype=torch.qint8, qscheme=torch.per_tensor_symmetric, reduce_range=False):
@@ -65,7 +66,7 @@ def analyze_layerwise_quant(model: nn.Module) -> dict:
                        click.style(f"   ➡️  Strategy:\n"
                                    f"   - Weight: customized int4\n"
                                    f"   - Activation: int8 (per-tensor quantization)\n"
-                                   f"   - Rationale: Optimized for Linear layers with 4-bit weight.\n"))
+                                   f"   - Rationale: Optimized for Linear layers with customized int4 weight.\n"))
 
         elif isinstance(module, (nn.MaxPool2d, nn.AvgPool2d)):
             quant_config[name] = quant.QConfig(
@@ -98,11 +99,90 @@ def analyze_layerwise_quant(model: nn.Module) -> dict:
                                    f"   - Rationale: Default low-precision strategy for x86.\n"))
 
 
+def post_quantize(model: nn.Module, device: str='cuda', quiet: bool = True) -> nn.Module:
+    """Quantize the model with data calibration.
+
+    Args:
+        graphed_model (nn.Module): graphed model
+        device: where the model should be quantized
+        quiet: True if running in non-interactive mode
+
+    Returns:
+        nn.Module: quantized model
+    """
+
+    if quiet:
+        click.echo(click.style("✅ Calibrating the model, be patient...", fg="blue", bold=True))
+    else:
+        quantize_confirm = click.prompt(
+                click.style(f"⚙️  Should I quantize the model for you? (y/n)", fg="yellow"),
+                type=str,
+                default="y"
+            )
+        if quantize_confirm.lower() != 'y':
+            click.echo(click.style("Skipping quantization...Model is not quantized", fg="yellow"))
+            return model
+
+    model.eval()
+    #model_fused = quant.fuse_modules(model, [['conv2', 'bn', 'relu']])
+    click.echo(click.style("⚙️ Analyzing quantization strategies layer by layer.", fg="blue", bold=True))
+    
+    model.qconfig = analyze_layerwise_quant(model)
+    model_prepared   = quant.prepare(model, inplace=False)
+    model_prepared.to(device)
+    calibration_dataloader = get_cifar_dataloader(split='calibration')
+    with torch.no_grad():
+        for imgs, _ in tqdm(calibration_dataloader, desc="🔄 Calibrating"):
+            imgs = imgs.to(device)
+            model_prepared(imgs)
+
+    model_quantized  = quant.convert(model_prepared, inplace=False)
+
+    return model_quantized
+
+def finetune_qat(model: nn.Module, dataloader: DataLoader, device: str = 'cuda', num_epochs: int = 5) -> nn.Module:
+    """Finetune the model in quantization-aware training way.
+
+    Args:
+        model (nn.Module): model to finetune
+        dataloader (DataLoader): calibration dataloader
+        device (str, optional):  Defaults to 'cuda'.
+        num_epochs (int, optional): Defaults to 5.
+    
+    Returns:
+        nn.Module: QAT-quantized model
+    """
+    model.train()
+    model.qconfig = analyze_layerwise_quant(model)
+    model_prepared = quant.prepare_qat(model, inplace=False)
+    model_prepared.to(device)
+
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    criterion = nn.CrossEntropyLoss()
+
+    for epoch in range(num_epochs):
+        total_loss = 0.0
+        for imgs, labels in tqdm(dataloader, desc=f"🔄 Finetuning Epoch {epoch+1}"):
+            imgs, labels = imgs.to(device), labels.to(device)
+            optimizer.zero_grad()
+            output = model_prepared(imgs)
+            loss = criterion(output, labels)
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss
+
+        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {total_loss.item() / len(dataloader)}")
+    
+    model_quantized = quant.convert(model_prepared, inplace=False)
+    click.echo(click.style(f'🏁 Finetuning completed after {num_epochs} epochs!', fg="green"))
+    return model_quantized
+
+
 def calculate_quantization_error(
         orig_model: nn.Module,
         quant_model: nn.Module,
         dataloader: DataLoader,
-        threshold: float = 1e-6,
         device: str = 'cuda'
     )->torch.Tensor:
     """Calculate quantization errors.
@@ -142,8 +222,5 @@ def calculate_quantization_error(
             num_batches += 1
 
     avg_error = total_error / num_batches if num_batches > 0 else 0.0
-    if avg_error > threshold:
-        click.echo(click.style(f'❌ Average quantization Error over dataset: {avg_error:.9f}'))
-    else:
-        click.echo(click.style(f'✅ Average quantization Error over dataset: {avg_error:.9f}'))
+    click.echo(click.style(f'📊 Average quantization error over dataset: {avg_error:.9f}'))
     return torch.tensor(avg_error)

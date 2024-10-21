@@ -1,12 +1,11 @@
 import click
-from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.fx as fx
-import torch.ao.quantization as quant
+from torch.utils.data import DataLoader
 from model_tracer import load_model, trace_model
 from optimize_graph import analyze_layer_graph, fuse_conv2_bn2
-from quantization import analyze_layerwise_quant, calculate_quantization_error
+from quantization import post_quantize, calculate_quantization_error, finetune_qat
 from dataloader import get_cifar_dataloader
 
 def trace(model: nn.Module, model_name: str, tracer_fn: callable, quiet: bool) -> fx.GraphModule:
@@ -93,6 +92,7 @@ def optimize(is_optimized: bool, graphed_model: fx.GraphModule, model_name: str,
 
     return optimzed_model
 
+
 def quantize(model: nn.Module, device: str='cuda', quiet: bool = True) -> nn.Module:
     """Quantize the model with data calibration.
 
@@ -116,31 +116,59 @@ def quantize(model: nn.Module, device: str='cuda', quiet: bool = True) -> nn.Mod
         if quantize_confirm.lower() != 'y':
             click.echo(click.style("Skipping quantization...Model is not quantized", fg="yellow"))
             return model
+    return post_quantize(model=model, device=device, quiet=quiet)
 
-    model.eval()
-    #model_fused = quant.fuse_modules(model, [['conv2', 'bn', 'relu']])
-    click.echo(click.style("⚙️ Analyzing quantization strategies layer by layer.", fg="blue", bold=True))
+def evaluate_quantization_strategy(
+        orig_model: nn.Module,
+        post_quantized_model: nn.Module,
+        quant_error_threshold: float,
+        quiet: bool = True,
+        device:str = 'cuda'
+    ) -> dict:
+    """Evaluate quantization strategy.
+
+    Args:
+        model (nn.Module): original model
+        post_quantized_model (nn.Module): post quantized model
+        quant_error_threshold (float): accepted quantization error threshold
+        quiet (bool, optional): True if running in non-interactive mode. Defaults to True.
+        device (str, optional): Defaults to 'cuda'.
+
+    Returns:
+        dict: new quantization strategy config
+    """
+    error = calculate_quantization_error(orig_model, post_quantized_model, get_cifar_dataloader(split='validation'), device=device)
+    dummy_strategy = {}
+    if error <= quant_error_threshold:
+        return dummy_strategy
     
-    model.qconfig = analyze_layerwise_quant(model)
-    model_prepared   = quant.prepare(model, inplace=False)
-    model_prepared.to(device)
-    calibration_dataloader = get_cifar_dataloader(split='calibration')
-    with torch.no_grad():
-        for imgs, _ in tqdm(calibration_dataloader, desc="🔄 Calibrating"):
-            imgs = imgs.to(device)
-            model_prepared(imgs)
+    if not quiet:
+        quantize_confirm = click.prompt(
+                click.style(f"⚙️  Post quantization error is higher than the threshold {quant_error_threshold},"
+                            "Should I perform QAT for you? (y/n)", fg="yellow"),
+                type=str,
+                default="y"
+            )
+        if quantize_confirm.lower() != 'y':
+            click.echo(click.style("Skipping quantization...Model is not quantized", fg="yellow"))
+            return dummy_strategy
 
-    model_quantized  = quant.convert(model_prepared, inplace=False)
+    qat_quantized_model = finetune_qat(post_quantized_model, get_cifar_dataloader(split='calibration'), device=device, num_epochs=5)
+    qat_error = calculate_quantization_error(orig_model, qat_quantized_model, get_cifar_dataloader(split='validation'), device=device)
+    
+    if qat_error < error:
+        click.echo(click.style(f'🎉 QAT is more effective than post quantization with this dataset.'))
+    else:
+        click.echo(click.style(f'😞 QAT is not more effective than post quantization, change strategy'))
 
-    return model_quantized
-
-
-
+    return dummy_strategy
+        
 @click.command()
 @click.argument('model_name', type=str)
 @click.option('--device', type=str, default='cuda', help="The device to run the model on")
 @click.option('--quiet', is_flag=True, default=False, help="Run this pipeline in non-interactive mode")
-def run_pipeline(model_name: str, device: str, quiet: bool):
+@click.option('--quant_error_threshold', type=float, default=1e-7, help="The threshold for quantization errors of the model")
+def run_pipeline(model_name: str, device: str, quiet: bool, quant_error_threshold: float):
 
     # Step 1: Identify model, load it and trace it.
     model, tracer_fn = load_model(model_name=model_name, device=device)
@@ -151,10 +179,12 @@ def run_pipeline(model_name: str, device: str, quiet: bool):
     # Step 4: Optimize the model (if it is not optimized yet)
     graphed_model = optimize(is_optimized=is_optimized, graphed_model=graphed_model, model_name=model_name, quiet=quiet)
     # Step 5: Quantize the model, we use the original model because torch.ao will fuse modules, fusion was only for demo
-    quantized_model = quantize(model=graphed_model, device=device)
-    # Step 6: See if we need to perform QAT
-    error = calculate_quantization_error(model, quantized_model, get_cifar_dataloader(split='validation'), device=device)
-
+    quantized_model = post_quantize(model=graphed_model, device=device)
+    # Step 6: See if we need to perform QAT and perform QAT if necessary
+    evaluate_quantization_strategy(model, quantized_model, quant_error_threshold, quiet=quiet, device=device) 
+    
 
 if __name__=='__main__':
+    torch.random.manual_seed(42)
     run_pipeline()
+
