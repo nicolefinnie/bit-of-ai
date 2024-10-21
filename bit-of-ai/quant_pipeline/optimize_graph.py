@@ -38,8 +38,8 @@ class FuseConv2dBatchNorm2d(fx.Transformer):
         if node.target not in self.modules:
             return False
         if isinstance(self.modules[node.target], nn.Conv2d):
-            next_node = list(node.users)[0]
-            if next_node.op == 'call_module' and isinstance(self.modules[next_node.target], nn.BatchNorm2d):
+            next_node_bn = list(node.users)[0]
+            if next_node_bn.op == 'call_module' and isinstance(self.modules[next_node_bn.target], nn.BatchNorm2d):
                 return True
             
         return False
@@ -94,11 +94,12 @@ class FuseConv2dBatchNorm2d(fx.Transformer):
             fused_conv.bias = torch.nn.Parameter(fused_conv_b, requires_grad=False)
 
         assert fused_conv.weight.shape == conv.weight.shape
-        
+
         if conv.bias is not None:
             assert fused_conv.bias.shape == conv.bias.shape
 
         return fused_conv
+        
 
     def transform(self) -> fx.GraphModule:
         """Fuse Conv2D and BatchNorm2d in the model.
@@ -119,9 +120,8 @@ class FuseConv2dBatchNorm2d(fx.Transformer):
                 next_node.replace_all_uses_with(node)
                 self.new_graph.erase_node(next_node)
         return fx.GraphModule(self.fx_model, self.new_graph)
-
-
-def analyze_layer(graph_module: fx.GraphModule) -> bool:
+    
+def analyze_layer_graph(graph_module: fx.GraphModule) -> bool:
     """Analyze layer to determine if there is an optimization opportunity.
 
     Args:
@@ -155,10 +155,8 @@ def fuse_conv2_bn2(graph_module: fx.GraphModule) -> fx.GraphModule:
 
     transformer = FuseConv2dBatchNorm2d(graph_module)    
     optimized_graph_module = transformer.transform()
-
    
     click.echo(click.style("⚙️  Start to fuse Conv2d and BatchNorm2d...", fg="blue"))
-
     transformer = FuseConv2dBatchNorm2d(graph_module)    
     optimized_graph_module = transformer.transform()
 
@@ -168,9 +166,4 @@ def fuse_conv2_bn2(graph_module: fx.GraphModule) -> fx.GraphModule:
     click.echo(click.style("✅ After optimization:", fg="green", bold=True))
     print(optimized_graph_module.graph.print_tabular())
     
-
-    
     return optimized_graph_module
-
-
-                    
