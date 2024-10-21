@@ -6,7 +6,7 @@ import torch.fx as fx
 import torch.ao.quantization as quant
 from model_tracer import load_model, trace_model
 from optimize_graph import analyze_layer_graph, fuse_conv2_bn2
-from quantization import analyze_layerwise_quant
+from quantization import analyze_layerwise_quant, calculate_quantization_error
 from dataloader import get_cifar_dataloader
 
 def trace(model: nn.Module, model_name: str, tracer_fn: callable, quiet: bool) -> fx.GraphModule:
@@ -124,7 +124,7 @@ def quantize(model: nn.Module, device: str='cuda', quiet: bool = True) -> nn.Mod
     model.qconfig = analyze_layerwise_quant(model)
     model_prepared   = quant.prepare(model, inplace=False)
     model_prepared.to(device)
-    calibration_dataloader = get_cifar_dataloader()
+    calibration_dataloader = get_cifar_dataloader(split='calibration')
     with torch.no_grad():
         for imgs, _ in tqdm(calibration_dataloader, desc="🔄 Calibrating"):
             imgs = imgs.to(device)
@@ -150,10 +150,10 @@ def run_pipeline(model_name: str, device: str, quiet: bool):
     is_optimized = analyze(graphed_model=graphed_model, model_name=model_name, quiet=quiet)
     # Step 4: Optimize the model (if it is not optimized yet)
     graphed_model = optimize(is_optimized=is_optimized, graphed_model=graphed_model, model_name=model_name, quiet=quiet)
-
-    #Step 5: Quantize the model, we use the original model because torch.ao will fuse modules, fusion was only for demo
+    # Step 5: Quantize the model, we use the original model because torch.ao will fuse modules, fusion was only for demo
     quantized_model = quantize(model=graphed_model, device=device)
-
+    # Step 6: See if we need to perform QAT
+    error = calculate_quantization_error(model, quantized_model, get_cifar_dataloader(split='validation'), device=device)
 
 
 if __name__=='__main__':

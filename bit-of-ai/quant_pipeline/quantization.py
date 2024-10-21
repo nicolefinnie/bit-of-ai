@@ -1,7 +1,9 @@
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.ao.quantization as quant
 from torch.ao.quantization import MinMaxObserver
+from torch.utils.data import DataLoader
 import click
 
 class Custom4BitMinMaxObserver(MinMaxObserver):
@@ -94,3 +96,54 @@ def analyze_layerwise_quant(model: nn.Module) -> dict:
                        click.style(f"   ➡️  Strategy:\n"
                                    f"   - Default: Facebook General Matrix Multiplication (FBGEMM)\n"
                                    f"   - Rationale: Default low-precision strategy for x86.\n"))
+
+
+def calculate_quantization_error(
+        orig_model: nn.Module,
+        quant_model: nn.Module,
+        dataloader: DataLoader,
+        threshold: float = 1e-6,
+        device: str = 'cuda'
+    )->torch.Tensor:
+    """Calculate quantization errors.
+
+    TODO ideally, we should calculate the error for each layer and return a dictionary of errors.
+
+    Args:
+        orig_model (nn.Module): original model
+        quant_model (nn.Module): quantized model
+        dataloader (DataLoader): data loader for calculation
+        device (str, optional): device. Defaults to 'cuda'.
+    
+    Returns:
+        torch.Tensor: quantization error
+    """
+    
+    orig_model.eval()
+    quant_model.eval()
+    total_error = 0.0
+    num_batches = 0
+    
+    with torch.no_grad():
+        for imgs, _ in tqdm(dataloader, desc="🔄 Evaluating Quantization Error"):
+            imgs = imgs.to(device)
+            orig_output = orig_model(imgs)
+            quant_output = quant_model(imgs)
+
+            # Ensure that the outputs have the same shape
+            if orig_output.shape != quant_output.shape:
+                print(f"Shape mismatch between original and quantized output!")
+                click.echo(click.style(f'❌ Shape mismatch between original {orig_output.shape} "\
+                                       "and quantized output {quant_output.shape}!', fg="red"))
+                continue
+
+            error = torch.mean(torch.abs(orig_output - quant_output))
+            total_error += error.item()
+            num_batches += 1
+
+    avg_error = total_error / num_batches if num_batches > 0 else 0.0
+    if avg_error > threshold:
+        click.echo(click.style(f'❌ Average quantization Error over dataset: {avg_error:.9f}'))
+    else:
+        click.echo(click.style(f'✅ Average quantization Error over dataset: {avg_error:.9f}'))
+    return torch.tensor(avg_error)
