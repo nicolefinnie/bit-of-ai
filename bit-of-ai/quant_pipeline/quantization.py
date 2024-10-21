@@ -68,7 +68,7 @@ def analyze_layerwise_quant(model: nn.Module) -> dict:
                                    f"   - Activation: int8 (per-tensor quantization)\n"
                                    f"   - Rationale: Optimized for Linear layers with customized int4 weight.\n"))
 
-        elif isinstance(module, (nn.MaxPool2d, nn.AvgPool2d)):
+        elif isinstance(module, (nn.MaxPool1d, nn.MaxPool2d, nn.AvgPool1d, nn.AvgPool2d)):
             quant_config[name] = quant.QConfig(
                 activation=quant.HistogramObserver.with_args(dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
                 weight=None
@@ -99,30 +99,16 @@ def analyze_layerwise_quant(model: nn.Module) -> dict:
                                    f"   - Rationale: Default low-precision strategy for x86.\n"))
 
 
-def post_quantize(model: nn.Module, device: str='cuda', quiet: bool = True) -> nn.Module:
+def post_quantize(model: nn.Module, device: str='cuda') -> nn.Module:
     """Quantize the model with data calibration.
 
     Args:
         graphed_model (nn.Module): graphed model
         device: where the model should be quantized
-        quiet: True if running in non-interactive mode
 
     Returns:
         nn.Module: quantized model
     """
-
-    if quiet:
-        click.echo(click.style("✅ Calibrating the model, be patient...", fg="blue", bold=True))
-    else:
-        quantize_confirm = click.prompt(
-                click.style(f"⚙️  Should I quantize the model for you? (y/n)", fg="yellow"),
-                type=str,
-                default="y"
-            )
-        if quantize_confirm.lower() != 'y':
-            click.echo(click.style("Skipping quantization...Model is not quantized", fg="yellow"))
-            return model
-
     model.eval()
     #model_fused = quant.fuse_modules(model, [['conv2', 'bn', 'relu']])
     click.echo(click.style("⚙️ Analyzing quantization strategies layer by layer.", fg="blue", bold=True))

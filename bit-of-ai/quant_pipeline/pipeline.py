@@ -93,14 +93,14 @@ def optimize(is_optimized: bool, graphed_model: fx.GraphModule, model_name: str,
     return optimzed_model
 
 
-def quantize(model: nn.Module, device: str='cuda', quiet: bool = True) -> nn.Module:
+def quantize(model: nn.Module, quiet: bool = True, device: str='cuda') -> nn.Module:
     """Quantize the model with data calibration.
 
     Args:
         graphed_model (nn.Module): graphed model
-        device: where the model should be quantized
         quiet: True if running in non-interactive mode
-
+        device: where the model should be quantized
+       
     Returns:
         nn.Module: quantized model
     """
@@ -116,7 +116,7 @@ def quantize(model: nn.Module, device: str='cuda', quiet: bool = True) -> nn.Mod
         if quantize_confirm.lower() != 'y':
             click.echo(click.style("Skipping quantization...Model is not quantized", fg="yellow"))
             return model
-    return post_quantize(model=model, device=device, quiet=quiet)
+    return post_quantize(model=model, device=device)
 
 def evaluate_quantization_strategy(
         orig_model: nn.Module,
@@ -179,7 +179,7 @@ def run_pipeline(model_name: str, device: str, quiet: bool, quant_error_threshol
     # Step 4: Optimize the model (if it is not optimized yet)
     graphed_model = optimize(is_optimized=is_optimized, graphed_model=graphed_model, model_name=model_name, quiet=quiet)
     # Step 5: Quantize the model, we use the original model because torch.ao will fuse modules, fusion was only for demo
-    quantized_model = post_quantize(model=graphed_model, device=device)
+    quantized_model = quantize(model=graphed_model, quiet=quiet, device=device)
     # Step 6: See if we need to perform QAT and perform QAT if necessary
     evaluate_quantization_strategy(model, quantized_model, quant_error_threshold, quiet=quiet, device=device) 
     
