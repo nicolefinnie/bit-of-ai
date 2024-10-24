@@ -64,6 +64,7 @@ def analyze(graphed_model: fx.GraphModule, model_name: str, quiet: bool) -> bool
             
             if is_optimized:
                 click.echo(click.style("🎉 Model is already optimized on the graph level! Nothing to do.", fg="green"))
+                graphed_model.graph.print_tabular()
     return is_optimized
 
 def optimize(is_optimized: bool, graphed_model: fx.GraphModule, model_name: str, quiet: bool) -> fx.GraphModule:

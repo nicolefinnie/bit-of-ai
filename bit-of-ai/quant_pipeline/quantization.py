@@ -57,7 +57,7 @@ def analyze_layerwise_quant(model: nn.Module) -> dict:
                                    f"   - Rationale: Optimized for target hardware (Conv2D sensitive).\n"))
      
         
-        elif isinstance(module, nn.Linear):
+        elif isinstance(module, (nn.Linear, nn.Embedding)):
             quant_config[name] = quant.QConfig(\
                 activation=quant.HistogramObserver.with_args(dtype=torch.qint8, qscheme=torch.per_tensor_symmetric),
                 weight=Custom4BitMinMaxObserver.with_args(dtype=torch.qint8, qscheme=torch.per_tensor_symmetric)
@@ -67,6 +67,7 @@ def analyze_layerwise_quant(model: nn.Module) -> dict:
                                    f"   - Weight: customized int4\n"
                                    f"   - Activation: int8 (per-tensor quantization)\n"
                                    f"   - Rationale: Optimized for Linear layers with customized int4 weight.\n"))
+
 
         elif isinstance(module, (nn.MaxPool1d, nn.MaxPool2d, nn.AvgPool1d, nn.AvgPool2d)):
             quant_config[name] = quant.QConfig(
@@ -144,7 +145,7 @@ def finetune_qat(model: nn.Module, dataloader: DataLoader, device: str = 'cuda',
     model_prepared.to(device)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-    criterion = nn.CrossEntropyLoss()
+    loss_fn = nn.CrossEntropyLoss()
 
     for epoch in range(num_epochs):
         total_loss = 0.0
@@ -152,7 +153,7 @@ def finetune_qat(model: nn.Module, dataloader: DataLoader, device: str = 'cuda',
             imgs, labels = imgs.to(device), labels.to(device)
             optimizer.zero_grad()
             output = model_prepared(imgs)
-            loss = criterion(output, labels)
+            loss = loss_fn(output, labels)
             loss.backward()
             optimizer.step()
 
