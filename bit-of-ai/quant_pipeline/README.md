@@ -25,45 +25,148 @@ try to quantize it first before optimizingthe graph )
 ```sh
 
 $ python pipeline.py simplecnn
-🧐 Should I trace the model 'simplecnn' for you? (y/n) [y]: 
-🔍 Should I analyze the model 'simplecnn' for optimization? (y/n) [y]: 
-🔍 Found optimization opportunity: Conv2d conv2 and BatchNorm2d bn2!
-⚙️  Should I optimize the model 'simplecnn' for you? (y/n) [y]: 
+🧐 Should I trace the model 'resnet18' for you? (y/n) [y]: 
+🔍 Should I analyze the model 'resnet18' for optimization? (y/n) [y]: 
+🔍 Found optimization opportunity: Conv2d layer1.0.conv2 and BatchNorm2d layer1.0.bn2!
+🔍 Found optimization opportunity: Conv2d layer1.1.conv2 and BatchNorm2d layer1.1.bn2!
+🔍 Found optimization opportunity: Conv2d layer2.0.conv2 and BatchNorm2d layer2.0.bn2!
+🔍 Found optimization opportunity: Conv2d layer2.1.conv2 and BatchNorm2d layer2.1.bn2!
+🔍 Found optimization opportunity: Conv2d layer3.0.conv2 and BatchNorm2d layer3.0.bn2!
+🔍 Found optimization opportunity: Conv2d layer3.1.conv2 and BatchNorm2d layer3.1.bn2!
+🔍 Found optimization opportunity: Conv2d layer4.0.conv2 and BatchNorm2d layer4.0.bn2!
+🔍 Found optimization opportunity: Conv2d layer4.1.conv2 and BatchNorm2d layer4.1.bn2!
+⚙️  Should I optimize the model 'resnet18' for you? (y/n) [y]: 
 Start to fuse Conv2d and BatchNorm2d...
 ⚙️  Start to fuse Conv2d and BatchNorm2d...
 🛠️  Before optimization:
-opcode         name     target                                                      args         kwargs
--------------  -------  ----------------------------------------------------------  -----------  --------
-placeholder    x        x                                                           ()           {}
-call_module    conv1    conv1                                                       (x,)         {}
-call_module    bn1      bn1                                                         (conv1,)     {}
-call_function  relu     <built-in method relu of type object at 0x7fb3dcc3a500>     (bn1,)       {}
-call_module    pool     pool                                                        (relu,)      {}
-call_module    conv2    conv2                                                       (pool,)      {}
-call_module    bn2      bn2                                                         (conv2,)     {}
-call_function  relu_1   <built-in method relu of type object at 0x7fb3dcc3a500>     (bn2,)       {}
-call_module    pool_1   pool                                                        (relu_1,)    {}
-call_function  flatten  <built-in method flatten of type object at 0x7fb3dcc3a500>  (pool_1, 1)  {}
-call_module    fc1      fc1                                                         (flatten,)   {}
-call_function  relu_2   <built-in method relu of type object at 0x7fb3dcc3a500>     (fc1,)       {}
-call_module    fc2      fc2                                                         (relu_2,)    {}
-output         output   output                                                      (fc2,)       {}
+opcode         name                   target                                                      args                                   kwargs
+-------------  ---------------------  ----------------------------------------------------------  -------------------------------------  --------
+placeholder    x                      x                                                           ()                                     {}
+call_module    conv1                  conv1                                                       (x,)                                   {}
+call_module    bn1                    bn1                                                         (conv1,)                               {}
+call_module    relu                   relu                                                        (bn1,)                                 {}
+call_module    maxpool                maxpool                                                     (relu,)                                {}
+call_module    layer1_0_conv1         layer1.0.conv1                                              (maxpool,)                             {}
+call_module    layer1_0_bn1           layer1.0.bn1                                                (layer1_0_conv1,)                      {}
+call_module    layer1_0_relu          layer1.0.relu                                               (layer1_0_bn1,)                        {}
+call_module    layer1_0_conv2         layer1.0.conv2                                              (layer1_0_relu,)                       {}
+call_module    layer1_0_bn2           layer1.0.bn2                                                (layer1_0_conv2,)                      {}
+call_function  add                    <built-in function add>                                     (layer1_0_bn2, maxpool)                {}
+call_module    layer1_0_relu_1        layer1.0.relu                                               (add,)                                 {}
+call_module    layer1_1_conv1         layer1.1.conv1                                              (layer1_0_relu_1,)                     {}
+call_module    layer1_1_bn1           layer1.1.bn1                                                (layer1_1_conv1,)                      {}
+call_module    layer1_1_relu          layer1.1.relu                                               (layer1_1_bn1,)                        {}
+call_module    layer1_1_conv2         layer1.1.conv2                                              (layer1_1_relu,)                       {}
+call_module    layer1_1_bn2           layer1.1.bn2                                                (layer1_1_conv2,)                      {}
+call_function  add_1                  <built-in function add>                                     (layer1_1_bn2, layer1_0_relu_1)        {}
+call_module    layer1_1_relu_1        layer1.1.relu                                               (add_1,)                               {}
+call_module    layer2_0_conv1         layer2.0.conv1                                              (layer1_1_relu_1,)                     {}
+call_module    layer2_0_bn1           layer2.0.bn1                                                (layer2_0_conv1,)                      {}
+call_module    layer2_0_relu          layer2.0.relu                                               (layer2_0_bn1,)                        {}
+call_module    layer2_0_conv2         layer2.0.conv2                                              (layer2_0_relu,)                       {}
+call_module    layer2_0_bn2           layer2.0.bn2                                                (layer2_0_conv2,)                      {}
+call_module    layer2_0_downsample_0  layer2.0.downsample.0                                       (layer1_1_relu_1,)                     {}
+call_module    layer2_0_downsample_1  layer2.0.downsample.1                                       (layer2_0_downsample_0,)               {}
+call_function  add_2                  <built-in function add>                                     (layer2_0_bn2, layer2_0_downsample_1)  {}
+call_module    layer2_0_relu_1        layer2.0.relu                                               (add_2,)                               {}
+call_module    layer2_1_conv1         layer2.1.conv1                                              (layer2_0_relu_1,)                     {}
+call_module    layer2_1_bn1           layer2.1.bn1                                                (layer2_1_conv1,)                      {}
+call_module    layer2_1_relu          layer2.1.relu                                               (layer2_1_bn1,)                        {}
+call_module    layer2_1_conv2         layer2.1.conv2                                              (layer2_1_relu,)                       {}
+call_module    layer2_1_bn2           layer2.1.bn2                                                (layer2_1_conv2,)                      {}
+call_function  add_3                  <built-in function add>                                     (layer2_1_bn2, layer2_0_relu_1)        {}
+call_module    layer2_1_relu_1        layer2.1.relu                                               (add_3,)                               {}
+call_module    layer3_0_conv1         layer3.0.conv1                                              (layer2_1_relu_1,)                     {}
+call_module    layer3_0_bn1           layer3.0.bn1                                                (layer3_0_conv1,)                      {}
+call_module    layer3_0_relu          layer3.0.relu                                               (layer3_0_bn1,)                        {}
+call_module    layer3_0_conv2         layer3.0.conv2                                              (layer3_0_relu,)                       {}
+call_module    layer3_0_bn2           layer3.0.bn2                                                (layer3_0_conv2,)                      {}
+call_module    layer3_0_downsample_0  layer3.0.downsample.0                                       (layer2_1_relu_1,)                     {}
+call_module    layer3_0_downsample_1  layer3.0.downsample.1                                       (layer3_0_downsample_0,)               {}
+call_function  add_4                  <built-in function add>                                     (layer3_0_bn2, layer3_0_downsample_1)  {}
+call_module    layer3_0_relu_1        layer3.0.relu                                               (add_4,)                               {}
+call_module    layer3_1_conv1         layer3.1.conv1                                              (layer3_0_relu_1,)                     {}
+call_module    layer3_1_bn1           layer3.1.bn1                                                (layer3_1_conv1,)                      {}
+call_module    layer3_1_relu          layer3.1.relu                                               (layer3_1_bn1,)                        {}
+call_module    layer3_1_conv2         layer3.1.conv2                                              (layer3_1_relu,)                       {}
+call_module    layer3_1_bn2           layer3.1.bn2                                                (layer3_1_conv2,)                      {}
+call_function  add_5                  <built-in function add>                                     (layer3_1_bn2, layer3_0_relu_1)        {}
+call_module    layer3_1_relu_1        layer3.1.relu                                               (add_5,)                               {}
+call_module    layer4_0_conv1         layer4.0.conv1                                              (layer3_1_relu_1,)                     {}
+call_module    layer4_0_bn1           layer4.0.bn1                                                (layer4_0_conv1,)                      {}
+call_module    layer4_0_relu          layer4.0.relu                                               (layer4_0_bn1,)                        {}
+call_module    layer4_0_conv2         layer4.0.conv2                                              (layer4_0_relu,)                       {}
+call_module    layer4_0_bn2           layer4.0.bn2                                                (layer4_0_conv2,)                      {}
+call_module    layer4_0_downsample_0  layer4.0.downsample.0                                       (layer3_1_relu_1,)                     {}
+call_module    layer4_0_downsample_1  layer4.0.downsample.1                                       (layer4_0_downsample_0,)               {}
+call_function  add_6                  <built-in function add>                                     (layer4_0_bn2, layer4_0_downsample_1)  {}
+call_module    layer4_0_relu_1        layer4.0.relu                                               (add_6,)                               {}
+call_module    layer4_1_conv1         layer4.1.conv1                                              (layer4_0_relu_1,)                     {}
+call_module    layer4_1_bn1           layer4.1.bn1                                                (layer4_1_conv1,)                      {}
+call_module    layer4_1_relu          layer4.1.relu                                               (layer4_1_bn1,)                        {}
+call_module    layer4_1_conv2         layer4.1.conv2                                              (layer4_1_relu,)                       {}
+call_module    layer4_1_bn2           layer4.1.bn2                                                (layer4_1_conv2,)                      {}
+call_function  add_7                  <built-in function add>                                     (layer4_1_bn2, layer4_0_relu_1)        {}
+call_module    layer4_1_relu_1        layer4.1.relu                                               (add_7,)                               {}
+call_module    avgpool                avgpool                                                     (layer4_1_relu_1,)                     {}
+call_function  flatten                <built-in method flatten of type object at 0x7f0f7d83a500>  (avgpool, 1)                           {}
+call_module    fc                     fc                                                          (flatten,)                             {}
+output         output                 output                                                      (fc,)                                  {}
 None
 ✅ After optimization:
-opcode         name     target                                                      args         kwargs
--------------  -------  ----------------------------------------------------------  -----------  --------
-placeholder    x        x                                                           ()           {}
-call_module    conv1    conv1                                                       (x,)         {}
-call_function  relu     <built-in method relu of type object at 0x7fb3dcc3a500>     (conv1,)     {}
-call_module    pool     pool                                                        (relu,)      {}
-call_module    conv2    conv2                                                       (pool,)      {}
-call_function  relu_1   <built-in method relu of type object at 0x7fb3dcc3a500>     (conv2,)     {}
-call_module    pool_1   pool                                                        (relu_1,)    {}
-call_function  flatten  <built-in method flatten of type object at 0x7fb3dcc3a500>  (pool_1, 1)  {}
-call_module    fc1      fc1                                                         (flatten,)   {}
-call_function  relu_2   <built-in method relu of type object at 0x7fb3dcc3a500>     (fc1,)       {}
-call_module    fc2      fc2                                                         (relu_2,)    {}
-output         output   output                                                      (fc2,)       {}
+opcode         name                   target                                                      args                                     kwargs
+-------------  ---------------------  ----------------------------------------------------------  ---------------------------------------  --------
+placeholder    x                      x                                                           ()                                       {}
+call_module    conv1                  conv1                                                       (x,)                                     {}
+call_module    relu                   relu                                                        (conv1,)                                 {}
+call_module    maxpool                maxpool                                                     (relu,)                                  {}
+call_module    layer1_0_conv1         layer1.0.conv1                                              (maxpool,)                               {}
+call_module    layer1_0_relu          layer1.0.relu                                               (layer1_0_conv1,)                        {}
+call_module    layer1_0_conv2         layer1.0.conv2                                              (layer1_0_relu,)                         {}
+call_function  add                    <built-in function add>                                     (layer1_0_conv2, maxpool)                {}
+call_module    layer1_0_relu_1        layer1.0.relu                                               (add,)                                   {}
+call_module    layer1_1_conv1         layer1.1.conv1                                              (layer1_0_relu_1,)                       {}
+call_module    layer1_1_relu          layer1.1.relu                                               (layer1_1_conv1,)                        {}
+call_module    layer1_1_conv2         layer1.1.conv2                                              (layer1_1_relu,)                         {}
+call_function  add_1                  <built-in function add>                                     (layer1_1_conv2, layer1_0_relu_1)        {}
+call_module    layer1_1_relu_1        layer1.1.relu                                               (add_1,)                                 {}
+call_module    layer2_0_conv1         layer2.0.conv1                                              (layer1_1_relu_1,)                       {}
+call_module    layer2_0_relu          layer2.0.relu                                               (layer2_0_conv1,)                        {}
+call_module    layer2_0_conv2         layer2.0.conv2                                              (layer2_0_relu,)                         {}
+call_module    layer2_0_downsample_0  layer2.0.downsample.0                                       (layer1_1_relu_1,)                       {}
+call_function  add_2                  <built-in function add>                                     (layer2_0_conv2, layer2_0_downsample_0)  {}
+call_module    layer2_0_relu_1        layer2.0.relu                                               (add_2,)                                 {}
+call_module    layer2_1_conv1         layer2.1.conv1                                              (layer2_0_relu_1,)                       {}
+call_module    layer2_1_relu          layer2.1.relu                                               (layer2_1_conv1,)                        {}
+call_module    layer2_1_conv2         layer2.1.conv2                                              (layer2_1_relu,)                         {}
+call_function  add_3                  <built-in function add>                                     (layer2_1_conv2, layer2_0_relu_1)        {}
+call_module    layer2_1_relu_1        layer2.1.relu                                               (add_3,)                                 {}
+call_module    layer3_0_conv1         layer3.0.conv1                                              (layer2_1_relu_1,)                       {}
+call_module    layer3_0_relu          layer3.0.relu                                               (layer3_0_conv1,)                        {}
+call_module    layer3_0_conv2         layer3.0.conv2                                              (layer3_0_relu,)                         {}
+call_module    layer3_0_downsample_0  layer3.0.downsample.0                                       (layer2_1_relu_1,)                       {}
+call_function  add_4                  <built-in function add>                                     (layer3_0_conv2, layer3_0_downsample_0)  {}
+call_module    layer3_0_relu_1        layer3.0.relu                                               (add_4,)                                 {}
+call_module    layer3_1_conv1         layer3.1.conv1                                              (layer3_0_relu_1,)                       {}
+call_module    layer3_1_relu          layer3.1.relu                                               (layer3_1_conv1,)                        {}
+call_module    layer3_1_conv2         layer3.1.conv2                                              (layer3_1_relu,)                         {}
+call_function  add_5                  <built-in function add>                                     (layer3_1_conv2, layer3_0_relu_1)        {}
+call_module    layer3_1_relu_1        layer3.1.relu                                               (add_5,)                                 {}
+call_module    layer4_0_conv1         layer4.0.conv1                                              (layer3_1_relu_1,)                       {}
+call_module    layer4_0_relu          layer4.0.relu                                               (layer4_0_conv1,)                        {}
+call_module    layer4_0_conv2         layer4.0.conv2                                              (layer4_0_relu,)                         {}
+call_module    layer4_0_downsample_0  layer4.0.downsample.0                                       (layer3_1_relu_1,)                       {}
+call_function  add_6                  <built-in function add>                                     (layer4_0_conv2, layer4_0_downsample_0)  {}
+call_module    layer4_0_relu_1        layer4.0.relu                                               (add_6,)                                 {}
+call_module    layer4_1_conv1         layer4.1.conv1                                              (layer4_0_relu_1,)                       {}
+call_module    layer4_1_relu          layer4.1.relu                                               (layer4_1_conv1,)                        {}
+call_module    layer4_1_conv2         layer4.1.conv2                                              (layer4_1_relu,)                         {}
+call_function  add_7                  <built-in function add>                                     (layer4_1_conv2, layer4_0_relu_1)        {}
+call_module    layer4_1_relu_1        layer4.1.relu                                               (add_7,)                                 {}
+call_module    avgpool                avgpool                                                     (layer4_1_relu_1,)                       {}
+call_function  flatten                <built-in method flatten of type object at 0x7f0f7d83a500>  (avgpool, 1)                             {}
+call_module    fc                     fc                                                          (flatten,)                               {}
+output         output                 output                                                      (fc,)                                    {}
 None
 
 ```
