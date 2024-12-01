@@ -137,16 +137,14 @@ def benchmark(gpt2_model, kvgpt2_model, n_trials=10):
             "In this new world, a delicate balance had to be maintained. While AI had the potential to solve many of humanity’s greatest challenges,"\
             "from climate change to disease eradication, it also introduced new risks. The world watched closely, knowing that every breakthrough came "\
             "with both the promise of progress and the shadow of unforeseen consequences."
-    
-    prompt = "The future of AI is"
-    
+        
     inputs = tokenizer(prompt, return_tensors="pt", padding=True).to(device)
     input_ids = inputs["input_ids"]
     print(f"Number of tokens: {input_ids.size(1)}")
     attention_mask = inputs["attention_mask"]
 
     # Use a better sampling strategy for generation
-    generation_kwargs = {
+    generation_config = {
         "use_cache": False,
         "max_new_tokens": 50,  # Generate up to 1024 tokens
         "do_sample": True,  # Enable sampling
@@ -157,7 +155,7 @@ def benchmark(gpt2_model, kvgpt2_model, n_trials=10):
         "pad_token_id": tokenizer.eos_token_id,  # Set the pad token ID
     }
 
-    generation_kwargs_kv = {
+    generation_config_kv = {
         "use_cache": True,
         "max_new_tokens": 50,  # Generate up to 1024 tokens
         "do_sample": True,  # Enable sampling
@@ -195,7 +193,7 @@ def benchmark(gpt2_model, kvgpt2_model, n_trials=10):
         # print(f"KV GPT-2 Output: {kvgpt2_text}")
         
         start = time.time()
-        gpt2_output = gpt2_model.generate(input_ids, **generation_kwargs)
+        gpt2_output = gpt2_model.generate(input_ids, **generation_config)
         print("gp2 generate time w/o KV-Cache: ", time.time() - start)
         gpt2_text = tokenizer.decode(gpt2_output[0], skip_special_tokens=True)
         print(
@@ -204,7 +202,7 @@ def benchmark(gpt2_model, kvgpt2_model, n_trials=10):
         print(f"GPT-2 Output: {gpt2_text}")
 
         start = time.time()
-        gpt2_output = gpt2_model.generate(input_ids, **generation_kwargs_kv)
+        gpt2_output = gpt2_model.generate(input_ids, **generation_config_kv)
         print("gp2 generate time w/ KV-Cache: ", time.time() - start)
         gpt2_text = tokenizer.decode(gpt2_output[0], skip_special_tokens=True)
         print(
